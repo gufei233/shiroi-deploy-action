@@ -164,6 +164,7 @@ jobs:
           password: ${{ secrets.PASSWORD }}
           key: ${{ secrets.KEY }}
           port: ${{ secrets.PORT }}
+          debug:      true
           script: |
             set -e
             source $HOME/.bashrc
