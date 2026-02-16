@@ -233,18 +233,14 @@ jobs:
             unzip -qq -o release.zip
             rm release.zip
 
-            # 定位 standalone 目录（精确匹配）
-            STANDALONE_DIR=$(find $WORKDIR -type f -name "server.js" -path "*/standalone/apps/web/server.js" | head -1 | xargs dirname)
+            # 定位 server.js（新结构：从 standalone 打包后直接是 apps/web）
+            STANDALONE_DIR=$(find $WORKDIR -type f -name "server.js" -path "*/apps/web/server.js" | head -1 | xargs dirname)
 
             if [ -z "$STANDALONE_DIR" ]; then
-              echo "⚠️  未找到 standalone/apps/web/server.js，尝试查找其他位置..."
-              STANDALONE_DIR=$(find $WORKDIR -type f -name "server.js" -path "*/standalone/server.js" | head -1 | xargs dirname)
-            fi
-
-            if [ -z "$STANDALONE_DIR" ]; then
-              echo "❌ 错误：找不到 standalone 目录中的 server.js"
-              echo "目录结构："
-              ls -la $WORKDIR
+              echo "⚠️  未找到 apps/web/server.js，检查目录结构..."
+              echo "目录内容："
+              find $WORKDIR -name "server.js" -type f
+              ls -laR $WORKDIR | head -50
               exit 1
             fi
 
