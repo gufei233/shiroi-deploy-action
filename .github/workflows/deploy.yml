@@ -108,10 +108,51 @@ jobs:
         run: pnpm install --no-frozen-lockfile
 
       - name: Build project
+        run: pnpm --filter @shiro/web build
+
+      - name: Prepare standalone bundle
         run: |
-          pnpm --filter @shiro/web build
-          cd apps/web
-          bash standalone-bundle.sh
+          cd apps/web/.next
+
+          # 清理缓存
+          rm -rf cache diagnostics
+
+          # 定位 standalone 目录
+          if [ -d "standalone/apps/web" ]; then
+            STANDALONE_DIR="standalone/apps/web"
+          elif [ -d "standalone" ]; then
+            STANDALONE_DIR="standalone"
+          else
+            echo "Error: Cannot find standalone directory"
+            exit 1
+          fi
+
+          echo "Using standalone dir: $STANDALONE_DIR"
+
+          # 复制 public 目录
+          if [ -d "../public" ]; then
+            echo "Copying public..."
+            mkdir -p $STANDALONE_DIR/public
+            cp -r ../public/* $STANDALONE_DIR/public/
+          fi
+
+          # 复制 static 目录
+          if [ -d "static" ]; then
+            echo "Copying static..."
+            mkdir -p $STANDALONE_DIR/.next/static
+            cp -r static/* $STANDALONE_DIR/.next/static/
+          fi
+
+          # 添加进程标题
+          echo ';process.title = "Shiro (NextJS)"' >> $STANDALONE_DIR/server.js
+
+          # 打包
+          cd ..
+          mkdir -p assets
+          rm -rf assets/release.zip
+          cd .next
+          zip -r ../assets/release.zip ./* -x "*/cache/*"
+          ls -lh ../assets/release.zip
 
       - name: Cache build artifacts
         uses: actions/cache/save@v4
