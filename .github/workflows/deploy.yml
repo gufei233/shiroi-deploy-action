@@ -138,8 +138,10 @@ jobs:
           # 将下载的 .env 复制到 apps/web/
           cp server-env/.env apps/web/.env
           echo "✓ 已复制 .env 文件到构建目录"
-          echo "=== .env 内容（NEXT_PUBLIC_* 变量）==="
-          grep "NEXT_PUBLIC_" apps/web/.env || echo "未找到 NEXT_PUBLIC_* 变量"
+
+          # 统计环境变量数量（不输出内容）
+          env_count=$(grep -c "NEXT_PUBLIC_" apps/web/.env || echo "0")
+          echo "✓ 检测到 $env_count 个 NEXT_PUBLIC_* 环境变量"
 
       - name: Build project
         run: pnpm --filter @shiro/web build
@@ -289,7 +291,7 @@ jobs:
               exit 1
             fi
 
-            echo "✓ 找到 monorepo 根目录: $MONOREPO_ROOT"
+            echo "✓ 找到 monorepo 根目录"
 
             # apps/web 的实际路径
             STANDALONE_DIR="$MONOREPO_ROOT/apps/web"
@@ -325,12 +327,12 @@ jobs:
             # 复制或创建 PM2 配置
             if [ ! -f "$BASEDIR/ecosystem.config.cjs" ]; then
               echo "📝 创建 PM2 配置..."
-              cat > $BASEDIR/ecosystem.config.cjs << 'EOFPM2'
+              cat > $BASEDIR/ecosystem.config.cjs << EOFPM2
             module.exports = {
               apps: [{
                 name: 'Shiro',
                 script: './apps/web/server.js',
-                cwd: process.env.SHIROI_WORKDIR || '/root/Shiroi/current',
+                cwd: process.env.SHIROI_WORKDIR || '$BASEDIR/current',
                 instances: 1,
                 exec_mode: 'cluster',
                 env: {
@@ -338,8 +340,8 @@ jobs:
                   PORT: 2323,
                   HOSTNAME: '0.0.0.0',
                 },
-                error_file: '/root/Shiroi/logs/err.log',
-                out_file: '/root/Shiroi/logs/out.log',
+                error_file: '$BASEDIR/logs/err.log',
+                out_file: '$BASEDIR/logs/out.log',
                 log_date_format: 'YYYY-MM-DD HH:mm:ss',
                 merge_logs: true,
                 max_memory_restart: '1G',
