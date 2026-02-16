@@ -112,58 +112,45 @@ jobs:
       - name: Build project
         run: pnpm --filter @shiro/web build
 
-      - name: Prepare standalone bundle
+      - name: Prepare deployment bundle
         run: |
-          cd apps/web/.next
+          cd apps/web
 
-          # 清理缓存
-          rm -rf cache diagnostics
+          # 创建部署目录
+          mkdir -p deploy-bundle
 
-          # 检查 standalone 目录结构
-          echo "=== Checking standalone structure ==="
-          ls -la standalone/
+          # 复制 standalone 目录作为基础（包含 apps/ 结构）
+          echo "=== Copying standalone structure ==="
+          cp -r .next/standalone/* deploy-bundle/
 
-          # 定位 standalone 目录
-          if [ -d "standalone/apps/web" ]; then
-            STANDALONE_DIR="standalone/apps/web"
-          elif [ -d "standalone" ]; then
-            STANDALONE_DIR="standalone"
-          else
-            echo "Error: Cannot find standalone directory"
-            exit 1
-          fi
+          # 删除 standalone 中的 node_modules
+          rm -rf deploy-bundle/node_modules
+          rm -rf deploy-bundle/apps/web/node_modules
 
-          echo "Using standalone dir: $STANDALONE_DIR"
+          # 复制 static 和 public 到正确位置
+          echo "=== Copying static assets ==="
+          mkdir -p deploy-bundle/apps/web/.next/static
+          cp -r .next/static/* deploy-bundle/apps/web/.next/static/
 
-          # 复制 public 目录
-          if [ -d "../public" ]; then
-            echo "Copying public..."
-            mkdir -p $STANDALONE_DIR/public
-            cp -r ../public/* $STANDALONE_DIR/public/
-          fi
+          mkdir -p deploy-bundle/apps/web/public
+          cp -r public/* deploy-bundle/apps/web/public/
 
-          # 复制 static 目录
-          if [ -d "static" ]; then
-            echo "Copying static..."
-            mkdir -p $STANDALONE_DIR/.next/static
-            cp -r static/* $STANDALONE_DIR/.next/static/
-          fi
+          # 复制 monorepo root 的配置文件
+          cp ../../package.json deploy-bundle/package.json
+          cp ../../pnpm-lock.yaml deploy-bundle/
+          cp ../../pnpm-workspace.yaml deploy-bundle/ 2>/dev/null || true
 
           # 添加进程标题
-          echo ';process.title = "Shiro (NextJS)"' >> $STANDALONE_DIR/server.js
+          echo ';process.title = "Shiro (NextJS)"' >> deploy-bundle/apps/web/server.js
 
-          # 打包整个 standalone 目录（而不是 .next）
-          echo "=== Creating release archive ==="
-          cd ..
+          # 打包
+          echo "=== Creating deployment archive ==="
           mkdir -p assets
-          rm -rf assets/release.zip
+          cd deploy-bundle
+          zip -r ../assets/release.zip ./* -x "*/cache/*" "*/.git/*"
 
-          # 打包 standalone 目录（包含完整的 node_modules）
-          cd .next/standalone
-          zip -r ../../assets/release.zip ./* -x "*/cache/*" "*/.git/*"
-
-          echo "=== Release created ==="
-          ls -lh ../../assets/release.zip
+          echo "=== Bundle created ==="
+          ls -lh ../assets/release.zip
 
       - name: Cache build artifacts
         uses: actions/cache/save@v4
@@ -235,18 +222,22 @@ jobs:
             unzip -qq -o release.zip
             rm release.zip
 
-            # 定位 monorepo 根目录（包含 apps/ 和 node_modules/.pnpm/）
-            MONOREPO_ROOT=$(find $WORKDIR -type f -name "server.js" -path "*/apps/web/server.js" | head -1 | xargs dirname | xargs dirname | xargs dirname)
+            # 定位 monorepo 根目录
+            MONOREPO_ROOT=$WORKDIR
 
-            if [ -z "$MONOREPO_ROOT" ] || [ ! -d "$MONOREPO_ROOT/apps/web" ]; then
-              echo "⚠️  未找到 monorepo 根目录，检查目录结构..."
-              echo "目录内容："
-              find $WORKDIR -name "server.js" -type f
-              ls -laR $WORKDIR | head -50
+            if [ ! -d "$MONOREPO_ROOT/apps/web" ]; then
+              echo "❌ 错误：找不到 apps/web 目录"
+              echo "目录结构："
+              ls -la $WORKDIR
               exit 1
             fi
 
             echo "✓ 找到 monorepo 根目录: $MONOREPO_ROOT"
+
+            # 安装依赖
+            echo "📦 安装生产依赖（这可能需要几分钟）..."
+            cd $MONOREPO_ROOT
+            pnpm install --prod --no-frozen-lockfile
 
             # apps/web 的实际路径
             STANDALONE_DIR="$MONOREPO_ROOT/apps/web"
