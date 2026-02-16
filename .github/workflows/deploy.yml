@@ -229,20 +229,27 @@ jobs:
 
             echo "✓ 找到 monorepo 根目录: $MONOREPO_ROOT"
 
-            # 安装依赖
-            echo "📦 安装生产依赖（这可能需要几分钟）..."
-            cd $MONOREPO_ROOT
+            # apps/web 的实际路径
+            STANDALONE_DIR="$MONOREPO_ROOT/apps/web"
 
-            # 检查是否有 lockfile
+            # 在 apps/web 目录安装依赖
+            echo "📦 安装生产依赖（这可能需要几分钟）..."
+            cd $STANDALONE_DIR
+
+            # 检查是否有 package.json
+            if [ ! -f "package.json" ]; then
+              echo "❌ 错误：apps/web/package.json 不存在"
+              ls -la $STANDALONE_DIR
+              exit 1
+            fi
+
+            # 安装依赖
             if [ -f "pnpm-lock.yaml" ]; then
               pnpm install --prod --frozen-lockfile
             else
               echo "⚠️  没有 lockfile，将生成新的"
               pnpm install --prod
             fi
-
-            # apps/web 的实际路径
-            STANDALONE_DIR="$MONOREPO_ROOT/apps/web"
 
             # 复制 .env 文件到 monorepo 根目录
             if [ ! -f "$ENV_FILE" ]; then
