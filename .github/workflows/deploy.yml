@@ -109,23 +109,35 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
-      - name: Download .env from server via SCP
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.HOST }}
-          username: ${{ secrets.USER }}
-          password: ${{ secrets.PASSWORD }}
-          key: ${{ secrets.KEY }}
-          port: ${{ secrets.PORT }}
-          source: 'Shiroi/.env'
-          target: './server-env/'
-          strip_components: 1
+      - name: Download .env from server
+        run: |
+          # 使用 sshpass + scp 从服务器下载 .env
+          mkdir -p server-env
+
+          # 根据认证方式选择不同的 scp 命令
+          if [ -n "${{ secrets.KEY }}" ]; then
+            # 使用 SSH Key
+            echo "${{ secrets.KEY }}" > /tmp/ssh_key
+            chmod 600 /tmp/ssh_key
+            scp -P ${{ secrets.PORT }} -i /tmp/ssh_key -o StrictHostKeyChecking=no \
+              ${{ secrets.USER }}@${{ secrets.HOST }}:Shiroi/.env \
+              server-env/.env
+            rm /tmp/ssh_key
+          else
+            # 使用密码（需要 sshpass）
+            sudo apt-get update && sudo apt-get install -y sshpass
+            sshpass -p "${{ secrets.PASSWORD }}" scp -P ${{ secrets.PORT }} -o StrictHostKeyChecking=no \
+              ${{ secrets.USER }}@${{ secrets.HOST }}:Shiroi/.env \
+              server-env/.env
+          fi
+
+          echo "✓ 已从服务器下载 .env 文件"
 
       - name: Copy .env to build location
         run: |
           # 将下载的 .env 复制到 apps/web/
-          cp ./server-env/.env apps/web/.env
-          echo "✓ 已从服务器复制 .env 文件到构建目录"
+          cp server-env/.env apps/web/.env
+          echo "✓ 已复制 .env 文件到构建目录"
           echo "=== .env 内容（NEXT_PUBLIC_* 变量）==="
           grep "NEXT_PUBLIC_" apps/web/.env || echo "未找到 NEXT_PUBLIC_* 变量"
 
