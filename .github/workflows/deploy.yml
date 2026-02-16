@@ -119,11 +119,11 @@ jobs:
           # 创建部署目录
           mkdir -p deploy-bundle
 
-          # 复制 standalone 目录作为基础（包含 apps/ 结构）
+          # 复制 standalone 目录作为基础（包含 apps/ 结构和修改过的 package.json）
           echo "=== Copying standalone structure ==="
           cp -r .next/standalone/* deploy-bundle/
 
-          # 删除 standalone 中的 node_modules
+          # 删除 standalone 中的 node_modules（稍后在服务器上安装）
           rm -rf deploy-bundle/node_modules
           rm -rf deploy-bundle/apps/web/node_modules
 
@@ -134,11 +134,6 @@ jobs:
 
           mkdir -p deploy-bundle/apps/web/public
           cp -r public/* deploy-bundle/apps/web/public/
-
-          # 复制 monorepo root 的配置文件
-          cp ../../package.json deploy-bundle/package.json
-          cp ../../pnpm-lock.yaml deploy-bundle/
-          cp ../../pnpm-workspace.yaml deploy-bundle/ 2>/dev/null || true
 
           # 添加进程标题
           echo ';process.title = "Shiro (NextJS)"' >> deploy-bundle/apps/web/server.js
@@ -237,7 +232,14 @@ jobs:
             # 安装依赖
             echo "📦 安装生产依赖（这可能需要几分钟）..."
             cd $MONOREPO_ROOT
-            pnpm install --prod --no-frozen-lockfile
+
+            # 检查是否有 lockfile
+            if [ -f "pnpm-lock.yaml" ]; then
+              pnpm install --prod --frozen-lockfile
+            else
+              echo "⚠️  没有 lockfile，将生成新的"
+              pnpm install --prod
+            fi
 
             # apps/web 的实际路径
             STANDALONE_DIR="$MONOREPO_ROOT/apps/web"
