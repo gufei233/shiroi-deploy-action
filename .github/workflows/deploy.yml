@@ -127,6 +127,36 @@ jobs:
           rm -rf deploy-bundle/node_modules
           rm -rf deploy-bundle/apps/web/node_modules
 
+          # 修改 apps/web/package.json，移除 workspace 依赖
+          echo "=== Fixing workspace dependencies ==="
+          if [ -f "deploy-bundle/apps/web/package.json" ]; then
+            # 使用 Node.js 修改 package.json
+            node -e "
+              const fs = require('fs');
+              const pkg = JSON.parse(fs.readFileSync('deploy-bundle/apps/web/package.json', 'utf8'));
+
+              // 移除 workspace 依赖
+              if (pkg.dependencies) {
+                Object.keys(pkg.dependencies).forEach(key => {
+                  if (pkg.dependencies[key].startsWith('workspace:')) {
+                    delete pkg.dependencies[key];
+                  }
+                });
+              }
+
+              if (pkg.devDependencies) {
+                Object.keys(pkg.devDependencies).forEach(key => {
+                  if (pkg.devDependencies[key].startsWith('workspace:')) {
+                    delete pkg.devDependencies[key];
+                  }
+                });
+              }
+
+              fs.writeFileSync('deploy-bundle/apps/web/package.json', JSON.stringify(pkg, null, 2));
+            "
+            echo "✓ Removed workspace dependencies"
+          fi
+
           # 复制 static 和 public 到正确位置
           echo "=== Copying static assets ==="
           mkdir -p deploy-bundle/apps/web/.next/static
