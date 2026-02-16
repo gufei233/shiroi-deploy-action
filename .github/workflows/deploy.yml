@@ -117,6 +117,10 @@ jobs:
           # 清理缓存
           rm -rf cache diagnostics
 
+          # 检查 standalone 目录结构
+          echo "=== Checking standalone structure ==="
+          ls -la standalone/
+
           # 定位 standalone 目录
           if [ -d "standalone/apps/web" ]; then
             STANDALONE_DIR="standalone/apps/web"
@@ -146,13 +150,18 @@ jobs:
           # 添加进程标题
           echo ';process.title = "Shiro (NextJS)"' >> $STANDALONE_DIR/server.js
 
-          # 打包
+          # 打包整个 standalone 目录（而不是 .next）
+          echo "=== Creating release archive ==="
           cd ..
           mkdir -p assets
           rm -rf assets/release.zip
-          cd .next
-          zip -r ../assets/release.zip ./* -x "*/cache/*"
-          ls -lh ../assets/release.zip
+
+          # 打包 standalone 目录（包含完整的 node_modules）
+          cd .next/standalone
+          zip -r ../../assets/release.zip ./* -x "*/cache/*" "*/.git/*"
+
+          echo "=== Release created ==="
+          ls -lh ../../assets/release.zip
 
       - name: Cache build artifacts
         uses: actions/cache/save@v4
