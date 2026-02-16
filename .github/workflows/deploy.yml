@@ -111,12 +111,14 @@ jobs:
 
       - name: Create .env file for build
         run: |
-          cat > .env << EOF
+          # Create .env in apps/web/ where next.config.mjs reads it
+          cat > apps/web/.env << EOF
           NEXT_PUBLIC_API_URL=${{ secrets.NEXT_PUBLIC_API_URL }}
           NEXT_PUBLIC_GATEWAY_URL=${{ secrets.NEXT_PUBLIC_GATEWAY_URL }}
           NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=${{ secrets.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY }}
           EOF
-          echo "✓ Created .env file with build-time variables"
+          echo "✓ Created apps/web/.env file with build-time variables"
+          cat apps/web/.env
 
       - name: Build project
         run: pnpm --filter @shiro/web build
