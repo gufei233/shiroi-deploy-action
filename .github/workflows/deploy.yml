@@ -109,16 +109,25 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
-      - name: Create .env file for build
+      - name: Download .env from server via SCP
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USER }}
+          password: ${{ secrets.PASSWORD }}
+          key: ${{ secrets.KEY }}
+          port: ${{ secrets.PORT }}
+          source: 'Shiroi/.env'
+          target: './server-env/'
+          strip_components: 1
+
+      - name: Copy .env to build location
         run: |
-          # Create .env in apps/web/ where next.config.mjs reads it
-          cat > apps/web/.env << EOF
-          NEXT_PUBLIC_API_URL=${{ secrets.NEXT_PUBLIC_API_URL }}
-          NEXT_PUBLIC_GATEWAY_URL=${{ secrets.NEXT_PUBLIC_GATEWAY_URL }}
-          NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=${{ secrets.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY }}
-          EOF
-          echo "✓ Created apps/web/.env file with build-time variables"
-          cat apps/web/.env
+          # 将下载的 .env 复制到 apps/web/
+          cp ./server-env/.env apps/web/.env
+          echo "✓ 已从服务器复制 .env 文件到构建目录"
+          echo "=== .env 内容（NEXT_PUBLIC_* 变量）==="
+          grep "NEXT_PUBLIC_" apps/web/.env || echo "未找到 NEXT_PUBLIC_* 变量"
 
       - name: Build project
         run: pnpm --filter @shiro/web build
