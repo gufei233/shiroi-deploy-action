@@ -367,16 +367,15 @@ jobs:
             rm -f $BASEDIR/current
             ln -sf $MONOREPO_ROOT $BASEDIR/current
 
-            # 重载 PM2（cluster 模式下零停机）
             echo "🔄 重载服务..."
             cd $BASEDIR
 
             # 检查 PM2 进程是否存在
+            # pm2 reload/restart 不会更新已有进程的 cwd，必须 delete + start 强制重新读取配置
             if pm2 describe Shiro > /dev/null 2>&1; then
-              pm2 reload ecosystem.config.cjs --update-env
-            else
-              pm2 start ecosystem.config.cjs
+              pm2 delete Shiro
             fi
+            pm2 start ecosystem.config.cjs
 
             pm2 save
 
