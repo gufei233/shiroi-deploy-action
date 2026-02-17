@@ -326,15 +326,18 @@ jobs:
             echo "📝 复制环境变量..."
             cp $ENV_FILE $MONOREPO_ROOT/.env
 
-            # 复制或创建 PM2 配置
-            if [ ! -f "$BASEDIR/ecosystem.config.cjs" ]; then
-              echo "📝 创建 PM2 配置..."
-              cat > $BASEDIR/ecosystem.config.cjs << EOFPM2
+            # 创建日志目录
+            mkdir -p $BASEDIR/logs
+
+            # 每次部署都更新 PM2 配置，将 cwd 硬编码为当前版本路径
+            # pm2 restart/reload 不会更新已运行进程的 cwd，必须通过更新配置文件解决
+            echo "📝 更新 PM2 配置..."
+            cat > $BASEDIR/ecosystem.config.cjs << EOFPM2
             module.exports = {
               apps: [{
                 name: 'Shiro',
                 script: './apps/web/server.js',
-                cwd: process.env.SHIROI_WORKDIR || '$BASEDIR/current',
+                cwd: '$MONOREPO_ROOT',
                 instances: 1,
                 exec_mode: 'cluster',
                 env: {
@@ -352,10 +355,6 @@ jobs:
               }],
             }
             EOFPM2
-            fi
-
-            # 创建日志目录
-            mkdir -p $BASEDIR/logs
 
             # 链接缓存目录（可选，加速后续构建）
             if [ -d "$STANDALONE_DIR/.next" ]; then
@@ -368,14 +367,13 @@ jobs:
             rm -f $BASEDIR/current
             ln -sf $MONOREPO_ROOT $BASEDIR/current
 
-            # 重启 PM2
-            echo "🔄 重启服务..."
+            # 重载 PM2（cluster 模式下零停机）
+            echo "🔄 重载服务..."
             cd $BASEDIR
-            export SHIROI_WORKDIR=$MONOREPO_ROOT
 
             # 检查 PM2 进程是否存在
             if pm2 describe Shiro > /dev/null 2>&1; then
-              pm2 restart ecosystem.config.cjs --update-env
+              pm2 reload ecosystem.config.cjs --update-env
             else
               pm2 start ecosystem.config.cjs
             fi
