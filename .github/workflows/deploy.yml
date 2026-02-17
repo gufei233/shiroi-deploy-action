@@ -5,6 +5,8 @@ on:
     branches:
       - main
   workflow_dispatch:  # 允许手动触发
+  repository_dispatch:
+    types: [trigger-workflow]  # 允许外部仓库通过 API 触发
 
 permissions: write-all
 
